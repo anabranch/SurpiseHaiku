@@ -96,11 +96,17 @@ Example:
 It's far from perfect as parsing something like "ShawnMendes" is tough. But overall it does a decent job finding true tweets and printing them out.
 
 ## How it Works
-Surprise Haiku will listen to the twitter firehose for a random set amount of time. As of now this is a manual operation that has to be explicitly stopped. Once stopped it writes this information to a file. I then run the *surprisehaiku.py* file which looks at whether or not a tweet is a Haiku. If it is it will tweet the Haiku along with the line splits. Some examples:
-
+Surprise Haiku will listen to the twitter firehose for a random set amount of time. Right now it the "track" or keywords it looks for in tweets in hard coded for the world cup. It will look at those tweets (which are a particularly hard bunch as they include lots of names and countries misspelled) and tries to find a haiku in them. The method for finding a haiku is explained below.
 
 
 ###Method for identifying a Haiku
+
+The simplest explanation is:
+
+* Normalize the tweets text
+* Split it by syllable/ each word by syllable
+* see if we get a 5/7/5 combination
+
 
 Identifying the syllabyles on the English language is tough. We've got a lot of different ways of pronouncing things. Our application loads a dictionary of syllabic breaks along with words. Then we start analyzing tweets by normalizing the text, removing capitalization, and other punctuation. From there we iterate through each word to see if it is in the dictionary, we then test what our "PyHyphen" hyphenator returns the value to be. 
 
