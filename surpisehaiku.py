@@ -1,40 +1,35 @@
 #!/usr/local/bin/python
 # coding: UTF-8
+from tweepy.streaming import StreamListener
+from tweepy import OAuthHandler
+from tweepy import Stream, API
 from hyphen import Hyphenator, dict_info
-import tweepy
-import csv
-import time
+from threading import Thread
+from time import sleep
 import os
+import csv
+import sys
 import re
 import string
 import json
 import random
 
-CONS_KEY = os.environ.get('AH_CONS_KEY')
-CONS_SECRET = os.environ.get('AH_CONS_SECRET')
-AXS_TKN = os.environ.get('AH_AXS_TKN')
-AXS_TKN_SECRET = os.environ.get('AH_AXS_TKN_SECRET')
-TWEET_FILE = 'testdata10.txt'
+TWEETS = []
+# Enter your twitter credentials here
+CONS_KEY = os.environ.get('AH_CONS_KEY') # consumer key
+CONS_SECRET = os.environ.get('AH_CONS_SECRET') # consumer secret
+AXS_TKN = os.environ.get('AH_AXS_TKN') # access token
+AXS_TKN_SECRET = os.environ.get('AH_AXS_TKN_SECRET') # access token secret
+TWEET_FILE = 'data.txt'
 
-def getTweets():
-    tweets = []
-    with open(TWEET_FILE) as f:
-        temp = f.readlines()
-        total_lines = len(temp)
-        for line in temp:
-            try:
-                tweets.append(json.loads(line))
-            except(ValueError):
-                pass
-    return tweets
-
-class listenr(tweepy.StreamListener):
-    """ A listener handles tweets are the received from the stream.
-    This is a basic listener that just prints received tweets to stdout.
+class listenr(StreamListener):
+    """ A listener handles TWEETS are the received from the stream.
+    This is a basic listener that just prints received TWEETS to stdout.
 
     """
     def on_data(self, data):
-        print data
+        # print data
+        TWEETS.append(data)
         return True
         
     def on_error(self, status):
@@ -121,6 +116,7 @@ class HyphenatorAlgorithm(object):
 class Evaluator(object):
     """
     Our Evaluator allows us to evaluate an individual word or a string of words
+    to get the syllable count
     """
     def __init__(self):
         self.h_dict = HyphenatorDictionary()
@@ -231,41 +227,81 @@ class Evaluator(object):
 
 class TwitterWrap(object):
     def __init__(self):
-        self.auth = tweepy.OAuthHandler(CONS_KEY, CONS_SECRET)
+        self.auth = OAuthHandler(CONS_KEY, CONS_SECRET)
         self.auth.set_access_token(AXS_TKN, AXS_TKN_SECRET)
-        self.twitter = tweepy.API(self.auth)
+        self.twitter = API(self.auth)
 
     def tweetLengthCheck(self, user_name, tweet_id, haiku):
+        """"
+        Makes sure our tweet length is short enough for twitter
+        """
         p1, p2, p3 = haiku
         tweet = "A #haiku: https://twitter.com/%s/status/%s\n\n%s\n%s\n%s" % (user_name, tweet_id, p1, p2, p3)
         return tweet
 
     def tweet(self, _string):
+        """Updates the status of the twitter user, then sleeps for a random 
+        amount of time to avoid getting blocked by the API"""
         sleeptime1 = random.random()
         sleeptime2 = random.randint(0,50)
         print "Sleeping for " + str(sleeptime1 + sleeptime2)
-        time.sleep(sleeptime1 + sleeptime2)
+        sleep(sleeptime1 + sleeptime2)
         self.twitter.update_status("%s" % (_string))
 
-    def startTweet(self):
-        self.tweet("%i tweets processed. No longer mentioning users. Version 0.5 of SurpiseHaiku")
-
     def debugTweet(self, tweet, to_tweet, word_val_list):
+        """Prints out the information about a tweet"""
         template = "{0:30}{1:5}{2:5}{3:5}"
+        print "ORIGINAL TWEET::"
         print tweet['text']
+        print "BY::"
         print tweet['user']['screen_name']
+        print "PARSED VERSION::"
         print to_tweet
-        print len(to_tweet)
+        print "length %i" % len(to_tweet)
+        print "Number of syllables in each word in the tweet..."
         print template.format("    ", '   DIC', '  ALG', '  Best')
         for count, val in enumerate(word_val_list):
             print template.format(*val)
 
-
-def evaluate(post=False, version_post=False, count=200):
+def postToTwitter(tweets, count=200):
+    """Takes in a list of tweets then posts to twitter the ones that are good tweets
+    """
     evaluator = Evaluator()
-    tweets = getTweets()
     tw = TwitterWrap()
+    tweets = [json.loads(tweet) for tweet in tweets]
+    print "%i tweets processed" % (len(tweets))
 
+    if count == -1:
+        count = len(tweets)
+
+    for tweet in tweets:
+        print tweet
+        haiku, breaks, word_val_list = evaluator.evaluateString(tweet['text'])
+        # print tweet['entities']
+
+        if haiku and tweet['lang'] == 'en':
+            words = [_x[0] for _x in word_val_list]
+
+            p1 = " ".join(words[:breaks[0]+1])
+            p2 = " ".join(words[breaks[0]+1:breaks[1]+1])
+            p3 = " ".join(words[breaks[1]+1:breaks[2]+1])
+
+            # print evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3)
+            if evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3):
+                to_tweet = tw.tweetLengthCheck(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
+                tw.debugTweet(tweet, to_tweet, word_val_list)
+                tw.tweet(to_tweet)
+        if count == 0:
+            break
+        count -= 1
+
+def printToStdOut(tweets, count=200):
+    """Takes in a list of tweets then prints to stdout the ones
+    that qualify as tweets
+    """
+    evaluator = Evaluator()
+    tw = TwitterWrap()
+    tweets = [json.loads(tweet) for tweet in tweets]
     print "%i tweets processed" % (len(tweets))
 
     if count == -1:
@@ -286,20 +322,28 @@ def evaluate(post=False, version_post=False, count=200):
             if evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3):
                 to_tweet = tw.tweetLengthCheck(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
                 tw.debugTweet(tweet, to_tweet, word_val_list)
-                if post:
-                    tw.tweet(to_tweet)
         if count == 0:
             break
         count -= 1
+
+auth = OAuthHandler(CONS_KEY, CONS_SECRET)  
+auth.set_access_token(AXS_TKN, AXS_TKN_SECRET)
+stream = Stream(auth, listenr())
+def download_tweets():
+    # We have to create the above in order for this to know what to do with stream,
+    # this is a side effect and probably could be done better.
+    stream.filter(track=['World Cup', 'Brazil', 'WorldCup'])
+
     
 def main():
-    # switch these to run tests
-   # evaluate()
-   evaluate(True, True, -1)
+    th = Thread(target=download_tweets)
+    th.daemon = True
+    th.start()
+    sleep(30)
+    printToStdOut(TWEETS)
 
 
 if __name__ == '__main__':
+    # print sys.argv
+    # for parsing command line args
     main()
-
-#could be good to convert numbers to their names...check downloads or package py2num
-# could be good to throw a random user mention in there...for the really goods ones???
