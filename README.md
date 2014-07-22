@@ -1,6 +1,6 @@
 #SurpriseHaiku
 
-SurpriseHaiku was an experiment that parsed random twitter tweets to see if they followed the Haiku cadence of 5 / 7 / 5. I ran this experiment during the 2014 Olympics to try and focus around Olympic related tweets.
+SurpriseHaiku was an experiment that parsed random twitter tweets to see if they followed the Haiku cadence of 5 / 7 / 5 (syllables). I ran this experiment during the 2014 Olympics to try and focus around Olympics related tweets.
 
 See: https://twitter.com/surprisehaiku
 
@@ -37,15 +37,22 @@ uncomfortable
 ##Usage
 * Fork this repo
 * Install dependencies
+	* Use either
 
 ----
     pip install pyhyphen
     pip install tweepy
 ----
 
+or...
+
+----
+	pip install -r requirements.txt
+----
+
 * [Get yourself a registered twitter app
 ](https://dev.twitter.com/) then either enter your credentials as environment variables at  line 18 of surprisehaiku.py
-* Run it!
+* Run it with the below command!
 
 ----
 
@@ -110,11 +117,12 @@ The simplest explanation is:
 
 Identifying the syllabyles on the English language is tough. We've got a lot of different ways of pronouncing things. Our application loads a dictionary of syllabic breaks along with words. Then we start analyzing tweets by normalizing the text, removing capitalization, and other punctuation. From there we iterate through each word to see if it is in the dictionary, we then test what our "PyHyphen" hyphenator returns the value to be. 
 
-Once we get our values (nearly instantly), we compare them and spit out the like breaks and word values. If it's a Haiku and we have the correct cadence (and the cadence ends at the end of a word) then we tweet the result.
+Once we get our values (nearly instantly), we compare them and spit out the like breaks and word values. If it's a Haiku and we have the correct cadence (and the cadence ends at the end of a word) then we tweet/print out the result.
 
 ###To Do/Improvements
 
 * Add in some more natural language processing so that Haikus have to end with certain parts of speech
+* Add in some natural language processing to throw out words with a lot of typos and or words we won't be able to recognize
 * Automate this so that it could be deployed to a server/doesn't have to be run manually
 * Automate adding to dictionary
 * Reporting mechanism for validation
