@@ -1,6 +1,6 @@
 #SurpriseHaiku
 
-SurpriseHaiku was an experiment that parsed random twitter tweets to see if they followed the Haiku cadence of 5 / 7 / 5 (syllables). I ran this experiment during the 2014 Olympics to try and focus around Olympics related tweets.
+SurpriseHaiku was an experiment that parsed random twitter tweets to see if they followed the Haiku cadence of 5 / 7 / 5 (syllables). I ran this experiment during the 2014 Olympics to try and focus around Olympics related tweets. This is one of my first applications that I built to learn more about the twitter API and to try some different packages.
 
 See: https://twitter.com/surprisehaiku
 
