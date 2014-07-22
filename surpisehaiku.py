@@ -15,12 +15,14 @@ import json
 import random
 
 TWEETS = []
+########
 # Enter your twitter credentials here
 CONS_KEY = os.environ.get('AH_CONS_KEY') # consumer key
 CONS_SECRET = os.environ.get('AH_CONS_SECRET') # consumer secret
 AXS_TKN = os.environ.get('AH_AXS_TKN') # access token
 AXS_TKN_SECRET = os.environ.get('AH_AXS_TKN_SECRET') # access token secret
 TWEET_FILE = 'data.txt'
+#########
 
 class listenr(StreamListener):
     """ A listener handles TWEETS are the received from the stream.
@@ -36,12 +38,37 @@ class listenr(StreamListener):
         print status
 
 class HyphenatorDictionary(object):
-    """docstring for HyphenatorDictionary"""    
+    """
+    This class wraps and builds our dictionary
+    of words. It provides simple methods for us
+    to retrieve relevant information from the dictionary
+    (the hyphenated version if it exists)
+    """    
     def __init__(self):
         self._syl_dict = {}
-        # self.addWord('a', 1)
 
-    def digest(self, unsplit_word):
+    def load_dict(self, filename):
+        """
+        Loads a syllable dictionary that is seperated by "-" or by "bullets"
+        """
+        with open(filename) as f: #open our hyphenator dictionary
+            ls = csv.reader(f) 
+            for _string in ls:
+                word, syllables = self._split_word(_string[0].decode('UTF-8'))
+                self.add_word(word, syllables)
+
+    def add_word(self, word, syllables):
+        """
+        adds a word to the in memory dictionary, this is not permanent
+        """
+        if word not in self._syl_dict:
+            self._syl_dict[word] = syllables
+        # else:
+            # if self._syl_dict[word] != syllables:
+            #     print("%s => Current: %i :: New: %i" 
+            #         % (word, self._syl_dict[word], syllables))
+                
+    def _split_word(self, unsplit_word):
         """This will take an unsplit word and 
         return the word and number of syllables
         from our hyphenation dictionary"""
@@ -56,29 +83,7 @@ class HyphenatorDictionary(object):
             return unsplit_word, 1
 
         unsplit_word.split()
-
-    def loadDict(self, filename):
-        """
-        Loads a syllable dictionary that is seperated by "-" or by "bullets"
-        """
-        with open(filename) as f: #open our hyphenator dictionary
-            ls = csv.reader(f) 
-            for _string in ls:
-                word, syllables = self.digest(_string[0].decode('UTF-8'))
-                self.addWord(word, syllables)
-
-    def addWord(self, word, syllables):
-        """
-        adds a word to the in memory dictionary, this is not permanent
-        """
-        if word not in self._syl_dict:
-            self._syl_dict[word] = syllables
-        # else:
-            # if self._syl_dict[word] != syllables:
-            #     print("%s => Current: %i :: New: %i" 
-            #         % (word, self._syl_dict[word], syllables))
                 
-
     def syllables(self, word):
         """
         Searches for the word in our dictionary, if it's there returns number
@@ -92,7 +97,7 @@ class HyphenatorDictionary(object):
 class HyphenatorAlgorithm(object):
     """
     This is a small wrapper on the Hyphenator method from our Hyphen import.
-    Conforms to the same return type as the HyphenatorDictionary
+    Conforms to the same return type as the HyphenatorDictionary class
     """
     def __init__(self):
         """
@@ -116,14 +121,15 @@ class HyphenatorAlgorithm(object):
 class Evaluator(object):
     """
     Our Evaluator allows us to evaluate an individual word or a string of words
-    to get the syllable count
+    to get the syllable count. It does this by first looking in the dictionary,
+    if it finds nothing it uses the hyphenator algorithm to try and get a response
     """
     def __init__(self):
         self.h_dict = HyphenatorDictionary()
         self.h_algo = HyphenatorAlgorithm()
-        self.h_dict.loadDict('dictionary files/mhyph-utf8.txt')
+        self.h_dict.load_dict('dictionary files/mhyph-utf8.txt')
         
-    def evaluateWord(self, word):
+    def evaluate_word(self, word):
         """
         Evaluate word takes in one word and returns a tuple of 
         the syllable count from our dictionary and our algorithm
@@ -131,7 +137,7 @@ class Evaluator(object):
         # print word, self.h_dict.syllables(word), self.h_algo.syllables(word)
         return self.h_dict.syllables(word), self.h_algo.syllables(word)
 
-    def stripRetweet(self, _string):
+    def strip_retweet(self, _string):
         """
         If a tweet starts with RT, it's a retweet. We want to strips the beginning
         returns original string minus RT : 
@@ -140,7 +146,7 @@ class Evaluator(object):
             _string = _string[_string.index(":")+1:]
         return _string
 
-    def cleanWord(self, word):
+    def clean_word(self, word):
         """
         Cleans a word by:
          - Stripping symbols
@@ -163,19 +169,19 @@ class Evaluator(object):
         else:
             return word
 
-    def cleanString(self, _string):
+    def clean_string(self, _string):
         """
         Cleans up our strings by stripping retweets and cleaning each word in the tweet
         """
         word_value_tuples = []
 
-        raw_word_list = self.stripRetweet(_string).replace('\n',' ').replace('-',' ').split(" ")
+        raw_word_list = self.strip_retweet(_string).replace('\n',' ').replace('-',' ').split(" ")
         raw_word_list = [word for word in raw_word_list if word != '' and len(word) < 100]
 
         for word in raw_word_list:
-            w = self.cleanWord(word)
+            w = self.clean_word(word)
             if w:
-                dic, alg = self.evaluateWord(unicode(w.lower()))
+                dic, alg = self.evaluate_word(unicode(w.lower()))
                 if dic != 0:
                     word_value_tuples.append((w, dic, alg, dic))
                 else:
@@ -183,21 +189,25 @@ class Evaluator(object):
 
         return word_value_tuples
 
-    def checkUserMentions(self, tweet, _string):
+    def check_user_mentions(self, tweet, _string):
+        """
+        Checks whether or not there is a user mention.
+        returns True or False
+        """
         mntns = tweet['entities']['user_mentions']
         for mtn in mntns:
-            if self.cleanWord(mtn['screen_name']) in _string:
+            if self.clean_word(mtn['screen_name']) in _string:
                 return False
         return True
 
-    def evaluateString(self, _string):
+    def evaluate_string(self, _string):
         """
         Evaluates a string by splitting it then passing along the unicode to
         the evaluate word method. It then returns a tuple of the mix, the dictionary's
-        calculation and our algorithm's calculation
+        calculation and our algorithm's calculation for further comparison
         """
 
-        word_val_list = self.cleanString(_string)
+        word_val_list = self.clean_string(_string)
         mixed = [x[3] for x in word_val_list]
 
         temp = 0
@@ -231,7 +241,7 @@ class TwitterWrap(object):
         self.auth.set_access_token(AXS_TKN, AXS_TKN_SECRET)
         self.twitter = API(self.auth)
 
-    def tweetLengthCheck(self, user_name, tweet_id, haiku):
+    def tweet_length_check(self, user_name, tweet_id, haiku):
         """"
         Makes sure our tweet length is short enough for twitter
         """
@@ -248,7 +258,7 @@ class TwitterWrap(object):
         sleep(sleeptime1 + sleeptime2)
         self.twitter.update_status("%s" % (_string))
 
-    def debugTweet(self, tweet, to_tweet, word_val_list):
+    def debug_tweet(self, tweet, to_tweet, word_val_list):
         """Prints out the information about a tweet"""
         template = "{0:30}{1:5}{2:5}{3:5}"
         print "ORIGINAL TWEET::"
@@ -263,7 +273,7 @@ class TwitterWrap(object):
         for count, val in enumerate(word_val_list):
             print template.format(*val)
 
-def postToTwitter(tweets, count=200):
+def post_to_twitter(tweets, count=200):
     """Takes in a list of tweets then posts to twitter the ones that are good tweets
     """
     evaluator = Evaluator()
@@ -276,7 +286,7 @@ def postToTwitter(tweets, count=200):
 
     for tweet in tweets:
         print tweet
-        haiku, breaks, word_val_list = evaluator.evaluateString(tweet['text'])
+        haiku, breaks, word_val_list = evaluator.evaluate_string(tweet['text'])
         # print tweet['entities']
 
         if haiku and tweet['lang'] == 'en':
@@ -286,16 +296,16 @@ def postToTwitter(tweets, count=200):
             p2 = " ".join(words[breaks[0]+1:breaks[1]+1])
             p3 = " ".join(words[breaks[1]+1:breaks[2]+1])
 
-            # print evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3)
-            if evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3):
-                to_tweet = tw.tweetLengthCheck(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
-                tw.debugTweet(tweet, to_tweet, word_val_list)
+            # print evaluator.check_user_mentions(tweet, p1+" "+p2+" "+p3)
+            if evaluator.check_user_mentions(tweet, p1+" "+p2+" "+p3):
+                to_tweet = tw.tweet_length_check(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
+                tw.debug_tweet(tweet, to_tweet, word_val_list)
                 tw.tweet(to_tweet)
         if count == 0:
             break
         count -= 1
 
-def printToStdOut(tweets, count=200):
+def print_to_std_out(tweets, count=200):
     """Takes in a list of tweets then prints to stdout the ones
     that qualify as tweets
     """
@@ -308,7 +318,7 @@ def printToStdOut(tweets, count=200):
         count = len(tweets)
 
     for tweet in tweets:
-        haiku, breaks, word_val_list = evaluator.evaluateString(tweet['text'])
+        haiku, breaks, word_val_list = evaluator.evaluate_string(tweet['text'])
         # print tweet['entities']
 
         if haiku and tweet['lang'] == 'en':
@@ -318,10 +328,10 @@ def printToStdOut(tweets, count=200):
             p2 = " ".join(words[breaks[0]+1:breaks[1]+1])
             p3 = " ".join(words[breaks[1]+1:breaks[2]+1])
 
-            # print evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3)
-            if evaluator.checkUserMentions(tweet, p1+" "+p2+" "+p3):
-                to_tweet = tw.tweetLengthCheck(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
-                tw.debugTweet(tweet, to_tweet, word_val_list)
+            # print evaluator.check_user_mentions(tweet, p1+" "+p2+" "+p3)
+            if evaluator.check_user_mentions(tweet, p1+" "+p2+" "+p3):
+                to_tweet = tw.tweet_length_check(tweet['user']['screen_name'], tweet['id'], (p1,p2,p3))
+                tw.debug_tweet(tweet, to_tweet, word_val_list)
         if count == 0:
             break
         count -= 1
@@ -329,6 +339,7 @@ def printToStdOut(tweets, count=200):
 auth = OAuthHandler(CONS_KEY, CONS_SECRET)  
 auth.set_access_token(AXS_TKN, AXS_TKN_SECRET)
 stream = Stream(auth, listenr())
+
 def download_tweets():
     # We have to create the above in order for this to know what to do with stream,
     # this is a side effect and probably could be done better.
@@ -336,11 +347,15 @@ def download_tweets():
 
     
 def main():
+    print "Creating Thread to Download Tweets..."
     th = Thread(target=download_tweets)
     th.daemon = True
     th.start()
-    sleep(30)
-    printToStdOut(TWEETS)
+    print "Thread created, now sleeping for 30 seconds..."
+    sleep(15)
+    print "15 seconds is up, waiting another 15 seconds..."
+    sleep(15)
+    print_to_std_out(TWEETS)
 
 
 if __name__ == '__main__':
