@@ -4,7 +4,6 @@ SurpriseHaiku was an experiment that parsed random twitter tweets to see if they
 
 See: https://twitter.com/surprisehaiku
 
-**Status:** No longer under development
 
    
 ## Examples
@@ -129,3 +128,4 @@ Once we get our values (nearly instantly), we compare them and spit out the like
 * Add plurals to dictionary
 * Better dictionary than just in memory/ maybe a database
 * parse command line arguments for time and whether to print them to twitter, etc
+* Write tests
