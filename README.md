@@ -35,9 +35,9 @@ uncomfortable
    * The Project Gutenberg Etext of Moby Hyphenator II by Grady Ward   
 
 ##Usage
-* Fork this repo
+* Download this repo
 * Install dependencies
-	* Use either
+	* Use either:
 
 ----
     pip install pyhyphen
